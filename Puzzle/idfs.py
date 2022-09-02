@@ -1,36 +1,83 @@
 import itertools
+import random
+import time
 
-from solver import Solver
+def id_dfs(puzzle, goal, get_moves):
+    def idfs(path, depth):
+        # unable to search when depth is 0
+        if depth == 0:
+            return
+        # check if goal has been reached
+        if path[-1] == goal:
+            return path
+        # iterate through possible moves
+        for move in get_moves(path[-1]):
+            # run this function on unvisited nodes, decrementing depth
+            if move not in path:
+                next_path = idfs(path + [move], depth - 1)
+                if next_path:
+                    return next_path
+    # runs dfs up to a limit of depth
+    # depth increases until goal is found
+    for depth in itertools.count():
+        path = idfs([puzzle], depth)
+        if path:
+            return path
+            
+def num_matrix(rows, cols, steps=25):
+    # fill default puzzle
+    nums = list(range(1, rows * cols)) + [0]
+    goal = [ nums[i:i+rows] for i in range(0, len(nums), rows) ]
 
+    get_moves = num_moves(rows, cols)
+    puzzle = goal
+    # shuffle puzzle
+    for steps in range(steps):
+        puzzle = random.choice(get_moves(puzzle))
 
-class IDDFS(Solver):
-    def __init__(self, initial_state):
-        super(IDDFS, self).__init__(initial_state)
-        self.frontier = []
+    return puzzle, goal
+    
+def num_moves(rows, cols):
+    def get_moves(subject):
+        moves = []
 
-    def dls(self, limit):
-        self.frontier.append(self.initial_state)
-        while self.frontier:
-            board = self.frontier.pop()
-            self.explored_nodes.add(tuple(board.state))
-            if board.goal_test():
-                self.set_solution(board)
-                return self.solution
-            if board.depth < limit:
-                for neighbor in board.neighbors()[::-1]:
-                    if tuple(neighbor.state) not in self.explored_nodes:
-                        self.frontier.append(neighbor)
-                        self.explored_nodes.add(tuple(neighbor.state))
-                        self.max_depth = max(self.max_depth, neighbor.depth)
-        return None
+        zrow, zcol = next((r, c)
+            for r, l in enumerate(subject)
+                for c, v in enumerate(l) if v == 0)
 
-    def solve(self):
-        for i in itertools.count():
-            self.frontier = []
-            self.explored_nodes = set()
-            self.max_depth = 0
-            self.frontier.append(self.initial_state)
-            sol = self.dls(i)
-            if sol is not None:
-                break
-        return
+        def swap(row, col):
+            import copy
+            s = copy.deepcopy(subject)
+            s[zrow][zcol], s[row][col] = s[row][col], s[zrow][zcol]
+            return s
+
+        # north
+        if zrow > 0:
+            moves.append(swap(zrow - 1, zcol))
+        # east
+        if zcol < cols - 1:
+            moves.append(swap(zrow, zcol + 1))
+        # south
+        if zrow < rows - 1:
+            moves.append(swap(zrow + 1, zcol))
+        # west
+        if zcol > 0:
+            moves.append(swap(zrow, zcol - 1))
+
+        return moves
+    return get_moves
+    
+
+if __name__ == '__main__':
+    reps = 25
+    print('Average solution times: ')
+    # Iterative depth first search
+    total_time = 0
+    for i in range(reps):
+        puzzle, goal = num_matrix(3, 3)
+        t0 = time.time()
+        solution = id_dfs(puzzle, goal, num_moves(3, 3))
+        t1 = time.time()
+        total_time += t1 - t0
+    total_time /= reps
+    print('Puzzle solved using iterative depth first search in', total_time, 'seconds.')
